@@ -7,6 +7,8 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, TypeVar, Union
 
+from typing_extensions import Annotated
+
 from wireup.errors import (
     AsTypeMismatchError,
     DuplicateQualifierForInterfaceError,
@@ -27,6 +29,7 @@ from wireup.ioc.types import (
     CallableType,
     ContainerObjectIdentifier,
     InjectableLifetime,
+    InjectableQualifier,
     get_container_object_id,
 )
 from wireup.ioc.util import ensure_is_type, get_callable_type, get_globals
@@ -255,12 +258,17 @@ class ContainerRegistry:
 
                 return raw_type_instance
 
+            # The alias factory depends on the normalized Optional[T] instance. When the
+            # original factory was registered with a qualifier, carry it over so the
+            # dependency resolves to the qualified factory instead of an unqualified one.
+            raw_type_annotation = Annotated[klass, InjectableQualifier(qualifier)] if qualifier is not None else klass
+
             compat_fn.__signature__ = inspect.Signature(  # type: ignore[attr-defined]
                 parameters=[
                     inspect.Parameter(
                         "raw_type_instance",
                         kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                        annotation=klass,
+                        annotation=raw_type_annotation,
                     )
                 ],
             )
